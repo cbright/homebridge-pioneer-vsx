@@ -1,5 +1,3 @@
-
-import { Socket } from "dgram";
 import {
     Logging,
 } from "homebridge";
@@ -20,10 +18,29 @@ class PioneerTelnetClient {
 
     }
 
-
-    send(){
-        return new Promise<string>((resolve,reject) => {
+    send(msg: string) {
+        return new Promise<string>((resolve, reject) => {
             let socket = new Socket()
+            socket.setTimeout(2000, () => socket.destroy());
+            socket.once('connect', () => socket.setTimeout(0));
+            socket.connect(23, "192.168.1.135", () => {
+                this.log.debug("[Pioneer Telnet Client] connected");
+                socket.write(msg + "\r");
+            });
+
+            socket.on("data", (d) => {
+                let data = d
+                    .toString()
+                    .replace('\n', '')
+                    .replace('\r', '');
+                resolve(data);
+                socket.end();
+                resolve(data.toString());
+            });
+
+            socket.on('error', (err) => {
+                reject(err);
+            });
         });
     }
 
