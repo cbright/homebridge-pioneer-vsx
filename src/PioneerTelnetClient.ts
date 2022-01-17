@@ -9,36 +9,38 @@ import {
 export = PioneerTelnetClient;
 
 class PioneerTelnetClient {
-
     private readonly log: Logging;
 
     constructor(log: Logging) {
         this.log = log;
-        log.debug("Got Here.");
-
     }
 
     send(msg: string) {
         return new Promise<string>((resolve, reject) => {
-            let socket = new Socket()
+            let socket = new Socket();
+            var data = "";
             socket.setTimeout(2000, () => socket.destroy());
             socket.once('connect', () => socket.setTimeout(0));
             socket.connect(23, "192.168.1.135", () => {
-                this.log.debug("[Pioneer Telnet Client] connected");
+                this.log.debug(`socket connected. sending ${msg}`);
                 socket.write(msg + "\r");
             });
 
             socket.on("data", (d) => {
-                let data = d
+                this.log.debug(`received ${d}`)
+                data = d
                     .toString()
                     .replace('\n', '')
                     .replace('\r', '');
-                resolve(data);
                 socket.end();
-                resolve(data.toString());
             });
 
+            socket.on('close', () =>{
+                resolve(data);
+            })
+
             socket.on('error', (err) => {
+                this.log.error(`socket error. ${err}`)
                 reject(err);
             });
         });

@@ -6,11 +6,12 @@ import PioneerTelnetClient from "./PioneerTelnetClient";
 
 export = PioneerDiscover;
 
-const inputToType = {
+//Todo make model specific
+const inputToType: { [key: string]: number } = {
     '00': 0, // PHONO -> Characteristic.InputSourceType.OTHER
     '01': 0, // CD -> Characteristic.InputSourceType.OTHER
     '02': 2, // TUNER -> Characteristic.InputSourceType.TUNER
-    '03': 0, // TAPE -> Characteristic.InputSourceType.OTHER
+    //'03': 0, // TAPE -> Characteristic.InputSourceType.OTHER
     '04': 0, // DVD -> Characteristic.InputSourceType.OTHER
     '05': 3, // TV -> Characteristic.InputSourceType.HDMI
     '06': 3, // CBL/SAT -> Characteristic.InputSourceType.HDMI
@@ -56,59 +57,38 @@ class PioneerDiscover {
         this.client = new PioneerTelnetClient(log);
     }
 
-
     async startDiscovery() {
         this.log.info("Starting input discovery.")
+
+        var inputs = [];
+
         for(var input in inputToType){
             this.log.debug(`attempting input ${input}`);
             let discoveredInput = await this.client.send(`?RGB${input}`);
-            this.log.debug(`recieved ${discoveredInput}`);
+            this.log.debug(`telnet client returned ${discoveredInput}`);
+
+            if (discoveredInput.startsWith("RGB")){
+                this.log.debug('Input recognized.');
+                let inptId = discoveredInput.substring(0,5);
+                let visibilityFlg = discoveredInput.substring(5,6);
+                let displayName = discoveredInput.substring(6).trim();
+
+                this.log.info(`input discovered: {inputId: ${inptId}, name: ${displayName}, visible: ${visibilityFlg} }`);
+
+                inputs.push({
+                    name: displayName,
+                    inputId: inptId,
+                    inputType: inputToType[input],
+                    isVisible: visibilityFlg === "1" ? true : false,
+                });
+
+            } else if(discoveredInput === "E06"){
+                this.log.debug('Invalid receiver input.');
+            } else {
+                this.log.warn('Unrecognized receiver output.');
+            }
         }
 
-        return [];
+        return inputs;
     }
-
-
-    // --------------------------- CUSTOM METHODS ---------------------------
-
-    //   addAccessory(name: string) {
-    //     this.log.info("Adding new accessory with name %s", name);
-
-    //     // uuid must be generated from a unique but not changing data source, name should not be used in the most cases. But works in this specific example.
-    //     const uuid = hap.uuid.generate(name);
-    //     const accessory = new Accessory(name, uuid);
-
-    //     accessory.addService(hap.Service.Lightbulb, "Test Light");
-
-    //     this.configureAccessory(accessory); // abusing the configureAccessory here
-
-    //     this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-    //   }
-
-    //   removeAccessories() {
-    //     // we don't have any special identifiers, we just remove all our accessories
-
-    //     this.log.info("Removing all accessories");
-
-    //     this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, this.accessories);
-    //     this.accessories.splice(0, this.accessories.length); // clear out the array
-    //   }
-
-    //   createHttpService() {
-    //     this.requestServer = http.createServer(this.handleRequest.bind(this));
-    //     this.requestServer.listen(18081, () => this.log.info("Http server listening on 18081..."));
-    //   }
-
-    //   private handleRequest(request: IncomingMessage, response: ServerResponse) {
-    //     if (request.url === "/add") {
-    //       this.addAccessory(new Date().toISOString());
-    //     } else if (request.url === "/remove") {
-    //       this.removeAccessories();
-    //     }
-
-    //     response.writeHead(204); // 204 No content
-    //     response.end();
-    //   }
-
-    // ----------------------------------------------------------------------
 }

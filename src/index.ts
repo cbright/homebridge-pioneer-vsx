@@ -51,38 +51,36 @@ import {
     private readonly log: Logging;
     private readonly name: string;
     private switchOn = false;
-  
-    private readonly switchService: Service;
+
     private readonly informationService: Service;
+    private readonly services: Service[] = [];
   
     constructor(log: Logging, config: AccessoryConfig, api: API) {
       this.log = log;
       this.name = config.name;
-  
-      this.switchService = new hap.Service.Switch(this.name);
-      this.switchService.getCharacteristic(hap.Characteristic.On)
-        .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-          log.info("Current state of the switch was returned: " + (this.switchOn? "ON": "OFF"));
-          callback(undefined, this.switchOn);
-        })
-        .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-          this.switchOn = value as boolean;
-          log.info("Switch state was set to: " + (this.switchOn? "ON": "OFF"));
-          callback();
-        });
-  
+
       this.informationService = new hap.Service.AccessoryInformation()
         .setCharacteristic(hap.Characteristic.Manufacturer, "Custom Manufacturer")
         .setCharacteristic(hap.Characteristic.Model, "Custom Model");
   
-      log.info("Switch finished initializing!");
+      this.services.push(this.informationService);
 
       let discoveryService = new PioneerDiscover(log);
       discoveryService.startDiscovery()
-      .then((d) =>{
+      .then(d => {
+        log.debug(`${d.length} inputs returned`);
+        for(let inpt of d){
+          let srvc = new api.hap.Service.InputSource(inpt.name);
+          srvc.setCharacteristic(hap.Characteristic.ConfiguredName,inpt.inputId)
+          srvc.setCharacteristic(hap.Characteristic.Name,inpt.name)
+          srvc.setCharacteristic(hap.Characteristic.IsConfigured, true);
+          srvc.setCharacteristic(hap.Characteristic.CurrentVisibilityState, inpt.isVisible ? 1 : 0);
 
-        this.log.debug("Promise Returned");
+          this.services.push(srvc);
+        }
       });
+      
+
     }
   
     /*
@@ -98,10 +96,8 @@ import {
      * It should return all services which should be added to the accessory.
      */
     getServices(): Service[] {
-      return [
-        this.informationService,
-        this.switchService,
-      ];
+      this.log.debug("Returning services.");
+      return this.services;
     }
   
   }
