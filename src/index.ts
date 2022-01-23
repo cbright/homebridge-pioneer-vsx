@@ -6,10 +6,16 @@ import {
     CharacteristicGetCallback,
     CharacteristicSetCallback,
     CharacteristicValue,
+    DynamicPlatformPlugin,
     HAP,
+    IndependentPlatformPlugin,
     Logging,
-    Service
+    PlatformAccessory,
+    PlatformConfig,
+    Service,
+    UnknownContext
   } from "homebridge";
+import { PlatformPlugin } from "homebridge/lib/api";
   import PioneerDiscover from "./PioneerDiscover";
 
   const PLUGIN_NAME = "homebridge-pioneer-vsx";
@@ -43,27 +49,23 @@ import {
    */
   export = (api: API) => {
     hap = api.hap;
-    api.registerAccessory(PLUGIN_NAME,"PioneerVSXPlugin", PioneerVsxPlugin);
+    api.registerPlatform("PioneerVSXPlugin", PioneerVsxPlugin);
   };
   
-  class PioneerVsxPlugin implements AccessoryPlugin {
+  class PioneerVsxPlugin implements DynamicPlatformPlugin {
   
     private readonly log: Logging;
-    private readonly name: string;
-    private switchOn = false;
-
-    private readonly informationService: Service;
-    private readonly services: Service[] = [];
+    private readonly accessory: PlatformAccessory[] = [];
   
-    constructor(log: Logging, config: AccessoryConfig, api: API) {
+    constructor(log: Logging, config: PlatformConfig, api: API) {
       this.log = log;
-      this.name = config.name;
 
-      this.informationService = new hap.Service.AccessoryInformation()
+      api.on("didFinishLaunching", () => {
+        let informationService = new hap.Service.AccessoryInformation()
         .setCharacteristic(hap.Characteristic.Manufacturer, "Custom Manufacturer")
         .setCharacteristic(hap.Characteristic.Model, "Custom Model");
   
-      this.services.push(this.informationService);
+      this.services.push(informationService);
 
       let discoveryService = new PioneerDiscover(log);
       discoveryService.startDiscovery()
@@ -79,8 +81,15 @@ import {
           this.services.push(srvc);
         }
       });
+      });
+
+      
       
 
+    }
+
+    configureAccessory(accessory: PlatformAccessory<UnknownContext>): void {
+        
     }
   
     /*
@@ -89,15 +98,6 @@ import {
      */
     identify(): void {
       this.log("Identify!");
-    }
-  
-    /*
-     * This method is called directly after creation of this instance.
-     * It should return all services which should be added to the accessory.
-     */
-    getServices(): Service[] {
-      this.log.debug("Returning services.");
-      return this.services;
     }
   
   }
